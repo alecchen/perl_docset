@@ -9,9 +9,14 @@ use File::Spec;
 use File::Path qw(mkpath);
 use Readonly;
 use Pod::Simple::HTMLBatch;
+use DBI;
+use File::Find;
 
 Readonly my $HTML_OUTPUT_DIR => File::Spec->catdir('Perlbrew.docset', 'Contents', 'Resources', 'Documents');
 Readonly my $INFO_PLIST      => File::Spec->catdir('Perlbrew.docset', 'Contents', 'Info.plist');
+Readonly my $SQLITE_DB       => File::Spec->catdir('Perlbrew.docset', 'Contents', 'Resources', 'docSet.dsidx');
+
+# get libraries path from executable
 
 my $perl_exe     = can_run('perl');
 my $perl_bin_dir = dirname($perl_exe);
@@ -24,25 +29,37 @@ my $site_perl_libraries = File::Spec->catdir($perl_lib_dir, 'site_perl', $perl_v
 my $perl_html_dir = File::Spec->catdir($HTML_OUTPUT_DIR, $perl_version);
 my $site_perl_html_dir = File::Spec->catdir($HTML_OUTPUT_DIR, 'site_perl', $perl_version);
 
-=pod
+# Generating Dash Docsets from 7. Any HTML Documentation
+# http://kapeli.com/docsets
+#
+# Step 1. Create the Docset Folder
+
 mkpath $perl_html_dir;
 mkpath $site_perl_html_dir;
+
+# 2. Copy the HTML Documentation
 
 my $batchconv = Pod::Simple::HTMLBatch->new;
 $batchconv->batch_convert( $perl_libraries,      $perl_html_dir      );
 $batchconv->batch_convert( $site_perl_libraries, $site_perl_html_dir );
 
-my $info_plist_content = << 'END';
+# 3. Create the Info.plist File
+
+my $index = File::Spec->catfile($perl_version, 'index.html');
+
+my $info_plist_content = << "END";
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
 	<key>CFBundleIdentifier</key>
-	<string>Perl</string>
+	<string>Perlbrew</string>
 	<key>CFBundleName</key>
-	<string>Perl</string>
+	<string>Perlbrew</string>
 	<key>DocSetPlatformFamily</key>
 	<string>Perl</string>
+        <key>dashIndexFilePath</key>
+        <string>$index</string>
 	<key>isDashDocset</key>
 	<true/>
 </dict>
@@ -50,4 +67,41 @@ my $info_plist_content = << 'END';
 END
 
 $info_plist_content > io($INFO_PLIST);
-=cut
+
+# 4. Create the SQLite Index
+
+my $dbh = DBI->connect("dbi:SQLite:dbname=$SQLITE_DB","","");
+my $sth;
+
+$sth = $dbh->prepare('CREATE TABLE searchIndex(id INTEGER PRIMARY KEY, name TEXT, type TEXT, path TEXT);');
+$sth->execute();
+
+$sth = $dbh->prepare('CREATE UNIQUE INDEX anchor ON searchIndex (name, type, path);');
+$sth->execute();
+
+my @files;
+
+foreach my $dir (($perl_html_dir, $site_perl_html_dir)) {
+    find(
+        sub { 
+            return unless $File::Find::name =~ /\.html$/;
+            return if basename($File::Find::name) eq /^index\.html$/;
+            my $name = File::Spec->abs2rel($File::Find::name, $dir);
+            my $path = File::Spec->abs2rel($File::Find::name, $HTML_OUTPUT_DIR);
+            $name =~ s/\//::/g;
+            $name =~ s/\.html$//;
+            $name =~ s/^pods:://;
+            push @files, {name => $name, path => $path};
+        }, 
+    $dir);
+}
+
+# 5. Populate the SQLite Index
+
+foreach my $file (@files) {
+    my $name = $file->{name};
+    my $path = $file->{path};
+
+    my $insert_sth = $dbh->prepare("INSERT OR IGNORE INTO searchIndex(name, type, path) VALUES ('$name', 'Class', '$path');");
+    $insert_sth->execute();
+}

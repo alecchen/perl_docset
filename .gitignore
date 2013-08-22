@@ -1,2 +1,3 @@
 *.swp
 *.docset
+.DS_Store
