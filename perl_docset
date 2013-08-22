@@ -1,0 +1,125 @@
+#!/usr/bin/env perl
+
+use strict;
+use warnings;
+use File::Spec;
+use File::Find;
+use File::Basename;
+use File::Path qw(mkpath);
+use IPC::Cmd qw(can_run);
+use Pod::Simple::HTMLBatch;
+use Getopt::Long;
+
+use DBI;
+use Smart::Comments;
+
+my @inputs    = ();
+my $output    = q{};
+my $show_help = 0;
+
+GetOptions (
+    'input=s{1,}'  => \@inputs,
+    'output=s' => \$output,
+    'help'     => \$show_help,
+);
+
+if ($show_help) {
+    print "usage: perl_docset [-i <input_directories>...] [-o <output_docset>]\n"; 
+    exit 0;
+}
+
+$output = $output || 'Perl.docset';
+
+my $HTML_OUTPUT_DIR = File::Spec->catdir($output, 'Contents', 'Resources', 'Documents');
+my $INFO_PLIST      = File::Spec->catdir($output, 'Contents', 'Info.plist');
+my $SQLITE_DB       = File::Spec->catdir($output, 'Contents', 'Resources', 'docSet.dsidx');
+
+# get libraries path from executable
+
+if (! @inputs) {
+    my $perl_exe     = can_run('perl');
+    my $perl_bin_dir = dirname($perl_exe);
+    my $perl_lib_dir = File::Spec->catdir($perl_bin_dir, '..', 'lib');
+    my $perl_version = basename((grep { ! /site_perl/ } glob File::Spec->catfile($perl_lib_dir, '*'))[0]);
+
+    my $perl_libraries      = File::Spec->catdir($perl_lib_dir, $perl_version);
+    my $site_perl_libraries = File::Spec->catdir($perl_lib_dir, 'site_perl', $perl_version);
+    @inputs = ($perl_libraries, $site_perl_libraries);
+}
+
+# Generating Dash Docsets from 7. Any HTML Documentation
+# http://kapeli.com/docsets
+#
+# Step 1. Create the Docset Folder
+
+mkpath $HTML_OUTPUT_DIR;
+
+# 2. Copy the HTML Documentation
+
+my $batchconv = Pod::Simple::HTMLBatch->new;
+$batchconv->batch_convert( \@inputs, $HTML_OUTPUT_DIR);
+
+# 3. Create the Info.plist File
+
+my $info_plist_content = << "END";
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleIdentifier</key>
+	<string>Perl</string>
+	<key>CFBundleName</key>
+	<string>Perl</string>
+	<key>DocSetPlatformFamily</key>
+	<string>Perl</string>
+        <key>dashIndexFilePath</key>
+        <string>index.html</string>
+	<key>isDashDocset</key>
+	<true/>
+</dict>
+</plist>
+END
+
+open OUT, ">$INFO_PLIST"
+    or die "can't open $INFO_PLIST for writing: $!\n";
+print OUT $info_plist_content;
+close OUT;
+
+# 4. Create the SQLite Index
+
+my $dbh = DBI->connect("dbi:SQLite:dbname=$SQLITE_DB","","");
+my $sth;
+
+$sth = $dbh->prepare('CREATE TABLE searchIndex(id INTEGER PRIMARY KEY, name TEXT, type TEXT, path TEXT);');
+$sth->execute();
+
+$sth = $dbh->prepare('CREATE UNIQUE INDEX anchor ON searchIndex (name, type, path);');
+$sth->execute();
+
+my @files;
+
+find(
+    sub { 
+        return unless $File::Find::name =~ /\.html$/;
+        return if basename($File::Find::name) eq 'index.html';
+
+        my $path = File::Spec->abs2rel($File::Find::name, $HTML_OUTPUT_DIR);
+        my $name = $path;
+
+        $name =~ s/\//::/g;
+        $name =~ s/\.html$//;
+        $name =~ s/^pods:://;
+
+        push @files, {name => $name, path => $path};
+    }, 
+$HTML_OUTPUT_DIR);
+
+# 5. Populate the SQLite Index
+
+foreach my $file (@files) {
+    my $name = $file->{name};
+    my $path = $file->{path};
+
+    my $insert_sth = $dbh->prepare("INSERT OR IGNORE INTO searchIndex(name, type, path) VALUES ('$name', 'Class', '$path');");
+    $insert_sth->execute();
+}

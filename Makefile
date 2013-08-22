@@ -1,5 +1,5 @@
 all:
-	./perlbrew_docset
+	./perl_docset
 
 clean:
-	rm -rf Perlbrew.docset
+	rm -rf Perl.docset
