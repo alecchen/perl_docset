@@ -58,7 +58,7 @@ $batchconv->batch_convert( \@inputs, $HTML_OUTPUT_DIR);
 
 # 3. Create the Info.plist File
 
-my $info_plist_content = << "END";
+my $info_plist_content = << 'END';
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
