@@ -1,6 +1,6 @@
 perl_docset
 ===========
-Generating dash docsets from local perl pod files
+Generating dash docsets from local Perl POD files
 
 Usage
 -----------
