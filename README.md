@@ -13,7 +13,7 @@ Usage
 
 Dependencies
 -----------
-* DBD::SQLite
+None
 
 License
 -----------

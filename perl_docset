@@ -10,17 +10,14 @@ use IPC::Cmd qw(can_run);
 use Pod::Simple::HTMLBatch;
 use Getopt::Long;
 
-use DBI;
-use Smart::Comments;
-
 my @inputs    = ();
 my $output    = q{};
 my $show_help = 0;
 
 GetOptions (
-    'input=s{1,}'  => \@inputs,
-    'output=s' => \$output,
-    'help'     => \$show_help,
+    'input=s{1,}' => \@inputs,
+    'output=s'    => \$output,
+    'help'        => \$show_help,
 );
 
 if ($show_help) {
@@ -50,7 +47,7 @@ if (! @inputs) {
 # Generating Dash Docsets from 7. Any HTML Documentation
 # http://kapeli.com/docsets
 #
-# Step 1. Create the Docset Folder
+# 1. Create the Docset Folder
 
 mkpath $HTML_OUTPUT_DIR;
 
@@ -87,14 +84,8 @@ close OUT;
 
 # 4. Create the SQLite Index
 
-my $dbh = DBI->connect("dbi:SQLite:dbname=$SQLITE_DB","","");
-my $sth;
-
-$sth = $dbh->prepare('CREATE TABLE searchIndex(id INTEGER PRIMARY KEY, name TEXT, type TEXT, path TEXT);');
-$sth->execute();
-
-$sth = $dbh->prepare('CREATE UNIQUE INDEX anchor ON searchIndex (name, type, path);');
-$sth->execute();
+system "sqlite3 $SQLITE_DB 'CREATE TABLE searchIndex(id INTEGER PRIMARY KEY, name TEXT, type TEXT, path TEXT);'";
+system "sqlite3 $SQLITE_DB 'CREATE UNIQUE INDEX anchor ON searchIndex (name, type, path);'";
 
 my @files;
 
@@ -120,6 +111,5 @@ foreach my $file (@files) {
     my $name = $file->{name};
     my $path = $file->{path};
 
-    my $insert_sth = $dbh->prepare("INSERT OR IGNORE INTO searchIndex(name, type, path) VALUES ('$name', 'Class', '$path');");
-    $insert_sth->execute();
+    system qq{sqlite3 $SQLITE_DB "INSERT OR IGNORE INTO searchIndex(name, type, path) VALUES ('$name', 'Class', '$path');"};
 }
