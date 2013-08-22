@@ -1,3 +1,4 @@
 *.swp
 *.docset
 .DS_Store
+tmp
