@@ -9,6 +9,7 @@ use File::Path qw(mkpath);
 use IPC::Cmd qw(can_run);
 use Pod::Simple::HTMLBatch;
 use Getopt::Long;
+use IO::File;
 
 my @inputs    = ();
 my $output    = q{};
@@ -57,22 +58,32 @@ my $batchconv = Pod::Simple::HTMLBatch->new;
 $batchconv->batch_convert( \@inputs, $HTML_OUTPUT_DIR);
 
 # 3. Create the Info.plist File
+#Set Docsetname 
+my $docsetName = $output;
+$docsetName =~ s/(.docSet)//i;
 
-my $info_plist_content = << 'END';
+my $info_plist_content .= << 'END';
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>CFBundleIdentifier</key>
-	<string>Perl</string>
-	<key>CFBundleName</key>
-	<string>Perl</string>
-	<key>DocSetPlatformFamily</key>
-	<string>Perl</string>
+  <key>CFBundleIdentifier</key>
+END
+$info_plist_content .= "<string>$docsetName</string>";
+  
+$info_plist_content .= << 'END';  
+  <key>CFBundleName</key>
+END
+$info_plist_content .=  "<string>$docsetName</string>";
+$info_plist_content .= << 'END';
+  <key>DocSetPlatformFamily</key>
+END
+$info_plist_content .=  "<string>$docsetName</string>";
+$info_plist_content .= << 'END';
         <key>dashIndexFilePath</key>
         <string>index.html</string>
-	<key>isDashDocset</key>
-	<true/>
+  <key>isDashDocset</key>
+  <true/>
 </dict>
 </plist>
 END
@@ -112,6 +123,24 @@ foreach my $file (@files) {
     my $path = $file->{path};
 
     system qq{sqlite3 $SQLITE_DB "INSERT OR IGNORE INTO searchIndex(name, type, path) VALUES ('$name', 'Class', '$path');"};
+   
+    #added to show functions in Dash
+    my $fi = $HTML_OUTPUT_DIR.'/'.$file->{path};
+    open (my $fhi, $fi) || die "$!, Couldn't open file $fi";
+    my @List;
+    my @lines = $fhi->getlines;
+
+    #anchor is within dt tags
+    foreach my $lines(@lines) {
+      if($lines =~ /(<dt><a name="(.*)")/){
+        
+        my $anchor = "#$2";
+        my $functionName = "$file->{name}::$2";
+
+        system qq{sqlite3 $SQLITE_DB "INSERT OR IGNORE INTO searchIndex(name, type, path) VALUES ('$functionName', 'Function', '$path$anchor');"};
+      }
+    }
+
 }
 
 # cpan's look and feel
