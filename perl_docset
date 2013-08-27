@@ -10,6 +10,7 @@ use File::Path qw(mkpath);
 use IPC::Cmd qw(can_run);
 use Pod::Simple::HTMLBatch;
 use Getopt::Long;
+use HTML::Entities;
 
 my @inputs;
 my ($output, $id, $name, $family, $show_help);
@@ -47,7 +48,8 @@ if (! @inputs) {
 
     my $perl_libraries      = File::Spec->catdir($perl_lib_dir, $perl_version);
     my $site_perl_libraries = File::Spec->catdir($perl_lib_dir, 'site_perl', $perl_version);
-    @inputs = ($perl_libraries, $site_perl_libraries);
+    my $darwin_libraries    = glob File::Spec->catdir($site_perl_libraries, 'darwin*');
+    @inputs = ($perl_libraries, $site_perl_libraries, $darwin_libraries);
 }
 
 # Generating Dash Docsets from 7. Any HTML Documentation
@@ -123,7 +125,21 @@ foreach my $file (@files) {
     my $name = $file->{name};
     my $path = $file->{path};
 
-    print SQLITE3_OUT "INSERT OR IGNORE INTO searchIndex(name, type, path) VALUES ('$name', 'Class', '$path');\n";
+    print SQLITE3_OUT "INSERT OR IGNORE INTO searchIndex(name, type, path) VALUES ('$name', 'Module', '$path');\n";
+
+    open HTML, File::Spec->catfile($HTML_OUTPUT_DIR, $path)
+        or die "can't open $path for reading $!\n";
+
+    foreach my $line (<HTML>) {
+        if ($line =~ /<li class='indexItem indexItem1'><a href='([^']+)'>([^<]+)/) {
+            my $anchor = $path . $1;
+            my $anchor_name = "${name}#" . decode_entities($2);
+            $anchor_name =~ s/'/''/g;
+            print SQLITE3_OUT "INSERT OR IGNORE INTO searchIndex(name, type, path) VALUES ('$anchor_name', 'Section', '$anchor');\n";
+        }
+    }
+
+    close HTML;
 }
 
 close SQLITE3_OUT;
