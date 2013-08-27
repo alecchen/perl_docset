@@ -5,6 +5,7 @@ use warnings;
 use File::Spec;
 use File::Find;
 use File::Basename;
+use File::Temp;
 use File::Path qw(mkpath);
 use IPC::Cmd qw(can_run);
 use Pod::Simple::HTMLBatch;
@@ -84,8 +85,14 @@ close OUT;
 
 # 4. Create the SQLite Index
 
-system "sqlite3 $SQLITE_DB 'CREATE TABLE searchIndex(id INTEGER PRIMARY KEY, name TEXT, type TEXT, path TEXT);'";
-system "sqlite3 $SQLITE_DB 'CREATE UNIQUE INDEX anchor ON searchIndex (name, type, path);'";
+my $sqlite3_command_fh = File::Temp->new( UNLINK => 1 );
+my $sqlite3_command = $sqlite3_command_fh->filename;
+
+open SQLITE3_OUT, ">$sqlite3_command"
+    or die "can't open $sqlite3_command for writing: $!\n";
+
+print SQLITE3_OUT 'CREATE TABLE searchIndex(id INTEGER PRIMARY KEY, name TEXT, type TEXT, path TEXT);', "\n";
+print SQLITE3_OUT 'CREATE UNIQUE INDEX anchor ON searchIndex (name, type, path);', "\n";
 
 my @files;
 
@@ -111,8 +118,11 @@ foreach my $file (@files) {
     my $name = $file->{name};
     my $path = $file->{path};
 
-    system qq{sqlite3 $SQLITE_DB "INSERT OR IGNORE INTO searchIndex(name, type, path) VALUES ('$name', 'Class', '$path');"};
+    print SQLITE3_OUT "INSERT OR IGNORE INTO searchIndex(name, type, path) VALUES ('$name', 'Class', '$path');\n";
 }
+
+close SQLITE3_OUT;
+system "sqlite3 $SQLITE_DB < $sqlite3_command";
 
 # cpan's look and feel
 
