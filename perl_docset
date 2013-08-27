@@ -11,13 +11,15 @@ use IPC::Cmd qw(can_run);
 use Pod::Simple::HTMLBatch;
 use Getopt::Long;
 
-my @inputs    = ();
-my $output    = q{};
-my $show_help = 0;
+my @inputs;
+my ($output, $id, $name, $family, $show_help);
 
 GetOptions (
     'input=s{1,}' => \@inputs,
     'output=s'    => \$output,
+    'id=s'        => \$id,
+    'name=s'      => \$name,
+    'family=s'    => \$family,
     'help'        => \$show_help,
 );
 
@@ -27,6 +29,9 @@ if ($show_help) {
 }
 
 $output = $output || 'Perl.docset';
+$id     = $id     || 'Perl';
+$name   = $name   || 'Perl';
+$family = $family || 'Perl';
 
 my $HTML_OUTPUT_DIR = File::Spec->catdir($output, 'Contents', 'Resources', 'Documents');
 my $INFO_PLIST      = File::Spec->catdir($output, 'Contents', 'Info.plist');
@@ -59,17 +64,17 @@ $batchconv->batch_convert( \@inputs, $HTML_OUTPUT_DIR);
 
 # 3. Create the Info.plist File
 
-my $info_plist_content = << 'END';
+my $info_plist_content = << "END";
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
 	<key>CFBundleIdentifier</key>
-	<string>Perl</string>
+	<string>$id</string>
 	<key>CFBundleName</key>
-	<string>Perl</string>
+	<string>$name</string>
 	<key>DocSetPlatformFamily</key>
-	<string>Perl</string>
+	<string>$family</string>
         <key>dashIndexFilePath</key>
         <string>index.html</string>
 	<key>isDashDocset</key>
