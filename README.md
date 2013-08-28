@@ -26,7 +26,7 @@ Usage
     </tr>
     <tr>
         <td>id</td>
-        <td>Perl</td>
+        <td>perl</td>
         <td></td>
     </tr>
     <tr>
@@ -36,7 +36,7 @@ Usage
     </tr>
     <tr>
         <td>family</td>
-        <td>Perl</td>
+        <td>perl</td>
         <td>searching prefix (perl:)</td>
     </tr>
 </table>

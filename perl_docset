@@ -30,9 +30,9 @@ if ($show_help) {
 }
 
 $output = $output || 'Perl.docset';
-$id     = $id     || 'Perl';
+$id     = $id     || 'perl';
 $name   = $name   || 'Perl';
-$family = $family || 'Perl';
+$family = $family || 'perl';
 
 my $HTML_OUTPUT_DIR = File::Spec->catdir($output, 'Contents', 'Resources', 'Documents');
 my $INFO_PLIST      = File::Spec->catdir($output, 'Contents', 'Info.plist');
