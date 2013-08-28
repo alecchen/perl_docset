@@ -1,5 +1,5 @@
 all:
-	./perl_docset
+	./perl_docset --name CPAN
 
 clean:
 	rm -rf Perl.docset

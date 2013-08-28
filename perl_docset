@@ -142,7 +142,7 @@ foreach my $file (@files) {
             print SQLITE3_OUT "INSERT OR IGNORE INTO searchIndex(name, type, path) VALUES ('$anchor_name', 'Section', '$anchor');\n";
         }
 
-        $line =~ s{(?<=^>)([^<]+)(?=</a></h1>)}{$1<a name='//apple_ref/cpp/Section/$1' class='dashAnchor'>} 
+        $line =~ s{(?<=^>)([^<]+)(?=</a></h1>)}{<a name='//apple_ref/cpp/Section/$1' class='dashAnchor'></a>$1} 
             if $line ne '>POD ERRORS</a></h1>';
 
         $new_html_content .= $line;
