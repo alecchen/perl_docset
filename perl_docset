@@ -79,6 +79,8 @@ my $info_plist_content = << "END";
 	<string>$family</string>
         <key>dashIndexFilePath</key>
         <string>index.html</string>
+        <key>DashDocSetFamily</key>
+        <string>dashtoc</string>
 	<key>isDashDocset</key>
 	<true/>
 </dict>
@@ -130,6 +132,8 @@ foreach my $file (@files) {
     open HTML, File::Spec->catfile($HTML_OUTPUT_DIR, $path)
         or die "can't open $path for reading $!\n";
 
+    my $new_html_content = q{};
+
     foreach my $line (<HTML>) {
         if ($line =~ /<li class='indexItem indexItem1'><a href='([^']+)'>([^<]+)/) {
             my $anchor = $path . $1;
@@ -137,9 +141,19 @@ foreach my $file (@files) {
             $anchor_name =~ s/'/''/g;
             print SQLITE3_OUT "INSERT OR IGNORE INTO searchIndex(name, type, path) VALUES ('$anchor_name', 'Section', '$anchor');\n";
         }
+
+        $line =~ s{(?<=^>)([^<]+)(?=</a></h1>)}{$1<a name='//apple_ref/cpp/Section/$1' class='dashAnchor'>} 
+            if $line ne '>POD ERRORS</a></h1>';
+
+        $new_html_content .= $line;
     }
 
     close HTML;
+
+    open OUT_HTML, '>' . File::Spec->catfile($HTML_OUTPUT_DIR, $path)
+        or die "can't open $path for writing $!\n";
+    print OUT_HTML $new_html_content;
+    close OUT_HTML;
 }
 
 close SQLITE3_OUT;
